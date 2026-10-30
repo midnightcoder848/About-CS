@@ -1,0 +1,1771 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexusNet - Interactive Network Packet Simulator</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Font Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              900: '#0c4a6e',
+            },
+            icmp: '#3b82f6',
+            tcp: '#eab308',
+            ack: '#10b981',
+            udp: '#a855f7',
+            drop: '#f43f5e',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    /* Glow utilities */
+    .glow-cyan {
+      box-shadow: 0 0 15px rgba(14, 165, 233, 0.35);
+    }
+    .glow-green {
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.35);
+    }
+    .glow-red {
+      box-shadow: 0 0 15px rgba(244, 63, 94, 0.35);
+    }
+    
+    /* Subtle Grid Canvas Background */
+    #canvas-container {
+      background-image: 
+        radial-gradient(rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 24px 24px, 48px 48px, 48px 48px;
+      background-position: 0 0, 0 0, 0 0;
+    }
+
+    /* Range Input Custom Styling */
+    input[type=range] {
+      accent-color: #0ea5e9;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans overflow-hidden select-none bg-slate-950 text-slate-200">
+
+  <!-- TOP DASHBOARD HEADER -->
+  <header class="h-14 border-b border-slate-800 bg-slate-900/80 backdrop-blur px-4 flex items-center justify-between z-20 shrink-0">
+    <!-- Brand Title -->
+    <div class="flex items-center space-x-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </div>
+      <div>
+        <h1 class="font-bold text-base tracking-wide text-white flex items-center gap-2">
+          NEXUS<span class="text-cyan-400 font-normal text-xs px-2 py-0.5 rounded bg-cyan-950 border border-cyan-800">NET SIM v2.5</span>
+        </h1>
+      </div>
+    </div>
+
+    <!-- Presets Selector & Actions -->
+    <div class="flex items-center space-x-3">
+      <span class="text-xs font-medium text-slate-400 hidden md:inline">Topology Presets:</span>
+      <select id="preset-select" class="bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded-md px-2.5 py-1.5 focus:outline-none focus:border-cyan-500">
+        <option value="multi-hop">Multi-Hop Router Chain</option>
+        <option value="client-server">Direct Client-Server</option>
+        <option value="star">Star Topology Network</option>
+        <option value="mesh">Mesh Network with Failover</option>
+        <option value="datacenter">Enterprise Load Balancer</option>
+      </select>
+
+      <div class="h-4 w-px bg-slate-800 mx-1"></div>
+
+      <!-- Quick Canvas Tools -->
+      <div class="flex items-center bg-slate-800/80 p-0.5 rounded-lg border border-slate-700/80">
+        <button id="tool-select" title="Select / Move Node" class="tool-btn active p-1.5 rounded-md text-slate-300 hover:text-white hover:bg-slate-700 text-xs flex items-center gap-1 font-medium bg-cyan-600 text-white">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/></svg>
+          Move
+        </button>
+        <button id="tool-link" title="Connect Nodes with Link" class="tool-btn p-1.5 rounded-md text-slate-300 hover:text-white hover:bg-slate-700 text-xs flex items-center gap-1 font-medium">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+          Link
+        </button>
+      </div>
+
+      <!-- Add Node Dropdown -->
+      <div class="relative group">
+        <button class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-white rounded-md px-3 py-1.5 flex items-center gap-1.5 font-medium transition">
+          <span>+ Add Node</span>
+          <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div class="absolute right-0 mt-1 w-36 bg-slate-900 border border-slate-800 rounded-lg shadow-xl hidden group-hover:block z-30 p-1">
+          <button onclick="app.addNode('client')" class="w-full text-left px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white rounded flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-cyan-400"></span> Client
+          </button>
+          <button onclick="app.addNode('router')" class="w-full text-left px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white rounded flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-purple-400"></span> Router
+          </button>
+          <button onclick="app.addNode('switch')" class="w-full text-left px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white rounded flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Switch
+          </button>
+          <button onclick="app.addNode('server')" class="w-full text-left px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white rounded flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-amber-400"></span> Server
+          </button>
+        </div>
+      </div>
+
+      <button id="btn-clear" class="text-xs text-slate-400 hover:text-red-400 border border-slate-800 hover:border-red-950/80 bg-slate-900 px-2.5 py-1.5 rounded-md transition">
+        Clear
+      </button>
+    </div>
+
+    <!-- Playback Engine Controls -->
+    <div class="flex items-center space-x-2 bg-slate-900/90 border border-slate-800 p-1 rounded-lg">
+      <button id="btn-play" title="Play / Pause" class="p-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white transition">
+        <svg id="icon-play" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <svg id="icon-pause" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </button>
+      <button id="btn-step" title="Step One Frame" class="p-1.5 rounded hover:bg-slate-800 text-slate-300 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
+      </button>
+
+      <div class="h-4 w-px bg-slate-800"></div>
+
+      <!-- Speed buttons -->
+      <div class="flex items-center space-x-1 text-xs">
+        <button class="speed-btn px-1.5 py-0.5 rounded text-slate-400 hover:text-white" data-speed="0.5">0.5x</button>
+        <button class="speed-btn active px-1.5 py-0.5 rounded bg-slate-700 text-cyan-400 font-bold" data-speed="1">1x</button>
+        <button class="speed-btn px-1.5 py-0.5 rounded text-slate-400 hover:text-white" data-speed="2">2x</button>
+        <button class="speed-btn px-1.5 py-0.5 rounded text-slate-400 hover:text-white" data-speed="5">5x</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE LAYOUT -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- LEFT SIDEBAR: PACKET GENERATOR & CONTROL PARAMS -->
+    <aside class="w-80 bg-slate-900 border-r border-slate-800 flex flex-col z-10 shrink-0">
+      
+      <!-- Packet Dispatch Tool -->
+      <div class="p-4 border-b border-slate-800">
+        <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
+          <span>Packet Generator</span>
+          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+        </h2>
+
+        <div class="space-y-3 text-xs">
+          <!-- Source & Destination Node Picker -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-slate-400 mb-1">Source Node</label>
+              <select id="packet-src" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-slate-200 focus:border-cyan-500 focus:outline-none">
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Destination</label>
+              <select id="packet-dst" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-slate-200 focus:border-cyan-500 focus:outline-none">
+              </select>
+            </div>
+          </div>
+
+          <!-- Protocol Selection -->
+          <div>
+            <label class="block text-slate-400 mb-1">Protocol / Packet Type</label>
+            <select id="packet-proto" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-slate-200 focus:border-cyan-500 focus:outline-none font-medium">
+              <option value="ICMP" class="text-blue-400">ICMP Ping (Request & Echo Reply)</option>
+              <option value="TCP_HANDSHAKE" class="text-yellow-400">TCP 3-Way Handshake (SYN -> SYN-ACK -> ACK)</option>
+              <option value="TCP_DATA" class="text-cyan-400">TCP Data Segment (Data -> ACK)</option>
+              <option value="UDP" class="text-purple-400">UDP Stream Datagram</option>
+            </select>
+          </div>
+
+          <!-- Payload Text Input -->
+          <div>
+            <label class="block text-slate-400 mb-1">Custom Payload Data</label>
+            <input type="text" id="packet-payload" value="GET /index.html HTTP/1.1" class="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 font-mono text-[11px] focus:border-cyan-500 focus:outline-none" />
+          </div>
+
+          <!-- Send Action Button -->
+          <div class="pt-1 flex gap-2">
+            <button id="btn-send-packet" class="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold py-2 px-3 rounded shadow-md shadow-cyan-900/30 transition flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+              Transmit Packet
+            </button>
+            <button id="btn-toggle-stream" title="Continuous Auto-Stream" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 p-2 rounded transition">
+              <svg id="stream-icon" class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Global Simulation Parameters Panel -->
+      <div class="p-4 flex-1 overflow-y-auto space-y-4">
+        <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Network Environmental Conditions</h2>
+
+        <!-- Link Latency -->
+        <div class="space-y-1">
+          <div class="flex justify-between text-xs">
+            <span class="text-slate-300">Default Link Latency</span>
+            <span id="val-latency" class="font-mono text-cyan-400">120 ms</span>
+          </div>
+          <input type="range" id="param-latency" min="20" max="600" step="10" value="120" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+          <p class="text-[10px] text-slate-500">Simulates physical propagation delay across wires.</p>
+        </div>
+
+        <!-- Link Loss Rate -->
+        <div class="space-y-1">
+          <div class="flex justify-between text-xs">
+            <span class="text-slate-300">Packet Loss Probability</span>
+            <span id="val-loss" class="font-mono text-rose-400">0%</span>
+          </div>
+          <input type="range" id="param-loss" min="0" max="50" step="1" value="0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+          <p class="text-[10px] text-slate-500">Simulates random noise / interference drop rate.</p>
+        </div>
+
+        <!-- Router Queue Capacity -->
+        <div class="space-y-1">
+          <div class="flex justify-between text-xs">
+            <span class="text-slate-300">Router Buffer Queue Size</span>
+            <span id="val-queue" class="font-mono text-amber-400">8 Packets</span>
+          </div>
+          <input type="range" id="param-queue" min="2" max="25" step="1" value="8" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+          <p class="text-[10px] text-slate-500">Over-capacity triggers Queue Overflow packet drops.</p>
+        </div>
+
+        <!-- Time To Live (TTL) -->
+        <div class="space-y-1">
+          <div class="flex justify-between text-xs">
+            <span class="text-slate-300">IP Packet TTL Limit</span>
+            <span id="val-ttl" class="font-mono text-purple-400">8 Hops</span>
+          </div>
+          <input type="range" id="param-ttl" min="1" max="16" step="1" value="8" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+          <p class="text-[10px] text-slate-500">Packets dropped if hop count exceeds TTL limit.</p>
+        </div>
+
+        <!-- Network Legend / Protocol Map -->
+        <div class="mt-6 pt-4 border-t border-slate-800">
+          <h3 class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Protocol Color Legend</h3>
+          <div class="grid grid-cols-2 gap-2 text-[11px]">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500"></span> ICMP Echo
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-yellow-400 shadow-sm shadow-yellow-400"></span> TCP SYN
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400"></span> TCP ACK / Response
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-sm shadow-purple-500"></span> UDP Datagram
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500"></span> Drop Burst
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER INTERACTIVE CANVAS AREA -->
+    <main class="flex-1 relative bg-slate-950 overflow-hidden flex flex-col" id="canvas-container">
+      
+      <!-- Interactive HTML5 Canvas -->
+      <canvas id="sim-canvas" class="w-full h-full block cursor-crosshair"></canvas>
+
+      <!-- Overlay Quick Tooltips / Canvas Controls -->
+      <div class="absolute bottom-4 left-4 bg-slate-900/90 backdrop-blur border border-slate-800 rounded-lg p-2 flex items-center gap-3 text-xs text-slate-400 shadow-xl">
+        <div class="flex items-center gap-1">
+          <kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] text-slate-200">Drag Node</kbd> Reposition
+        </div>
+        <div class="h-3 w-px bg-slate-800"></div>
+        <div class="flex items-center gap-1">
+          <kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] text-slate-200">Click Node/Link</kbd> Inspect
+        </div>
+      </div>
+
+    </main>
+
+    <!-- RIGHT SIDEBAR: INSPECTOR & REAL-TIME STATS -->
+    <aside class="w-80 bg-slate-900 border-l border-slate-800 flex flex-col z-10 shrink-0">
+      
+      <!-- Tab Navigation Header -->
+      <div class="flex border-b border-slate-800">
+        <button id="tab-inspector" class="flex-1 py-2.5 text-xs font-semibold text-cyan-400 border-b-2 border-cyan-500 bg-slate-800/40 transition">
+          Inspector
+        </button>
+        <button id="tab-stats" class="flex-1 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition">
+          Analytics
+        </button>
+      </div>
+
+      <!-- TAB 1: INSPECTOR PANEL -->
+      <div id="panel-inspector" class="flex-1 overflow-y-auto p-4 space-y-4">
+        
+        <div id="inspector-empty" class="text-center py-12 text-slate-500 text-xs">
+          <svg class="w-10 h-10 mx-auto mb-2 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v11m0 5l4.879-4.879m0 0a3 3 0 10-4.243-4.242 3 3 0 004.243 4.242z"/></svg>
+          Select a Node, Link, or Packet on the canvas or from the log console to inspect header details.
+        </div>
+
+        <div id="inspector-content" class="space-y-4 hidden text-xs">
+          <!-- Dynamically populated by JS -->
+        </div>
+
+      </div>
+
+      <!-- TAB 2: ANALYTICS PANEL -->
+      <div id="panel-stats" class="flex-1 overflow-y-auto p-4 space-y-4 hidden">
+        
+        <!-- Key Metrics Cards -->
+        <div class="grid grid-cols-2 gap-2">
+          <div class="bg-slate-950 p-2.5 rounded border border-slate-800">
+            <span class="text-[10px] text-slate-400 uppercase">Packets Sent</span>
+            <div id="stat-sent" class="text-base font-bold text-slate-100 font-mono mt-0.5">0</div>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded border border-slate-800">
+            <span class="text-[10px] text-slate-400 uppercase">Delivered</span>
+            <div id="stat-delivered" class="text-base font-bold text-emerald-400 font-mono mt-0.5">0</div>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded border border-slate-800">
+            <span class="text-[10px] text-slate-400 uppercase">Dropped</span>
+            <div id="stat-dropped" class="text-base font-bold text-rose-400 font-mono mt-0.5">0</div>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded border border-slate-800">
+            <span class="text-[10px] text-slate-400 uppercase">Loss Rate</span>
+            <div id="stat-loss-rate" class="text-base font-bold text-amber-400 font-mono mt-0.5">0.0%</div>
+          </div>
+        </div>
+
+        <!-- Latency & Throughput Metrics -->
+        <div class="bg-slate-950 p-3 rounded border border-slate-800 space-y-2">
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-slate-400">Avg Round-Trip Time (RTT):</span>
+            <span id="stat-avg-rtt" class="font-mono text-cyan-400 font-semibold">0 ms</span>
+          </div>
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-slate-400">Current Throughput:</span>
+            <span id="stat-throughput" class="font-mono text-purple-400 font-semibold">0 pkts/s</span>
+          </div>
+        </div>
+
+        <!-- Live Sparkline Throughput Chart -->
+        <div class="bg-slate-950 p-3 rounded border border-slate-800 space-y-2">
+          <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Live Traffic Rate</span>
+          <canvas id="chart-sparkline" class="w-full h-24 block"></canvas>
+        </div>
+
+      </div>
+
+    </aside>
+  </div>
+
+  <!-- BOTTOM LIVE PACKET EVENT LOG CONSOLE -->
+  <footer class="h-48 border-t border-slate-800 bg-slate-900 flex flex-col z-20 shrink-0">
+    
+    <!-- Log Header Toolbar -->
+    <div class="h-8 border-b border-slate-800 px-4 flex items-center justify-between text-xs bg-slate-950/60">
+      <div class="flex items-center space-x-3">
+        <span class="font-semibold text-slate-300 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          Live Packet Console Log
+        </span>
+
+        <!-- Filter Pill Buttons -->
+        <div class="flex items-center space-x-1 ml-4">
+          <button class="log-filter active px-2 py-0.5 rounded text-[10px] bg-cyan-950 border border-cyan-800 text-cyan-300" data-filter="ALL">ALL</button>
+          <button class="log-filter px-2 py-0.5 rounded text-[10px] text-slate-400 hover:text-slate-200" data-filter="ICMP">ICMP</button>
+          <button class="log-filter px-2 py-0.5 rounded text-[10px] text-slate-400 hover:text-slate-200" data-filter="TCP">TCP</button>
+          <button class="log-filter px-2 py-0.5 rounded text-[10px] text-slate-400 hover:text-slate-200" data-filter="UDP">UDP</button>
+          <button class="log-filter px-2 py-0.5 rounded text-[10px] text-slate-400 hover:text-slate-200" data-filter="DROPPED">DROPPED</button>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <!-- Log Search Bar -->
+        <input type="text" id="log-search" placeholder="Search log..." class="bg-slate-900 border border-slate-800 text-[11px] text-slate-200 rounded px-2 py-0.5 focus:outline-none focus:border-cyan-500 w-36">
+        
+        <button id="btn-clear-log" class="text-slate-400 hover:text-slate-200 text-[11px]">Clear Log</button>
+      </div>
+    </div>
+
+    <!-- Log Table Scroll Area -->
+    <div class="flex-1 overflow-y-auto font-mono text-[11px]" id="log-container">
+      <table class="w-full text-left border-collapse">
+        <thead class="bg-slate-950/80 sticky top-0 text-slate-500 border-b border-slate-800 text-[10px] uppercase">
+          <tr>
+            <th class="py-1 px-3">Time</th>
+            <th class="py-1 px-2">Status</th>
+            <th class="py-1 px-2">Proto</th>
+            <th class="py-1 px-3">Source &rarr; Dest</th>
+            <th class="py-1 px-3">Seq / Ack</th>
+            <th class="py-1 px-3">Hop Path</th>
+            <th class="py-1 px-3">Info / Payload Snippet</th>
+          </tr>
+        </thead>
+        <tbody id="log-tbody" class="divide-y divide-slate-800/50 text-slate-300">
+          <!-- Log rows dynamically appended -->
+        </tbody>
+      </table>
+    </div>
+  </footer>
+
+  <!-- CORE JAVASCRIPT ENGINE -->
+  <script>
+    /**
+     * NEXUSNET - INTERACTIVE SIMULATION ENGINE
+     */
+
+    // --- NODE & GRAPH DATA MODELS ---
+    class Node {
+      constructor(id, type, name, x, y, ip) {
+        this.id = id;
+        this.type = type; // 'client' | 'router' | 'switch' | 'server'
+        this.name = name;
+        this.x = x;
+        this.y = y;
+        this.radius = 22;
+        this.ip = ip || `192.168.1.${id}`;
+        this.mac = `52:54:00:${Math.floor(Math.random()*89+10)}:${Math.floor(Math.random()*89+10)}:${id < 10 ? '0'+id : id}`;
+        
+        // Queue simulation for buffer overruns
+        this.queue = [];
+        this.isProcessingQueue = false;
+        
+        // Stats
+        this.sent = 0;
+        this.received = 0;
+        this.dropped = 0;
+      }
+    }
+
+    class Link {
+      constructor(id, nodeAId, nodeBId, latency = 120, lossRate = 0) {
+        this.id = id;
+        this.nodeAId = nodeAId;
+        this.nodeBId = nodeBId;
+        this.latency = latency; // ms delay
+        this.lossRate = lossRate; // 0 to 0.5
+      }
+    }
+
+    class Packet {
+      constructor(cfg) {
+        this.id = 'pkt_' + Math.random().toString(36).substr(2, 7);
+        this.srcId = cfg.srcId;
+        this.dstId = cfg.dstId;
+        this.srcIp = cfg.srcIp;
+        this.dstIp = cfg.dstIp;
+        this.protocol = cfg.protocol; // 'ICMP' | 'TCP_SYN' | 'TCP_SYNACK' | 'TCP_ACK' | 'TCP_DATA' | 'UDP'
+        this.payload = cfg.payload || 'DATA';
+        this.ttl = cfg.ttl !== undefined ? cfg.ttl : 8;
+        this.seqNum = cfg.seqNum || Math.floor(Math.random() * 9000 + 1000);
+        this.ackNum = cfg.ackNum || 0;
+        this.srcPort = cfg.srcPort || 49152 + Math.floor(Math.random() * 10000);
+        this.dstPort = cfg.dstPort || (cfg.protocol.startsWith('TCP') ? 80 : 53);
+        
+        // Routing path (array of node IDs)
+        this.path = cfg.path || [];
+        this.currentHopIdx = 0; // index in path
+        
+        // Traversal progress on current link (0.0 to 1.0)
+        this.progress = 0;
+        this.spawnTime = performance.now();
+        this.status = 'transmitting'; // 'transmitting', 'queued', 'delivered', 'dropped'
+        this.dropReason = null;
+        this.hopHistory = [];
+        
+        // Color mapping based on protocol
+        this.color = this.getProtocolColor(this.protocol);
+      }
+
+      getProtocolColor(proto) {
+        switch(proto) {
+          case 'ICMP': return '#3b82f6'; // Blue
+          case 'TCP_SYN': return '#eab308'; // Yellow
+          case 'TCP_SYNACK': return '#f97316'; // Orange
+          case 'TCP_ACK': return '#10b981'; // Green
+          case 'TCP_DATA': return '#06b6d4'; // Cyan
+          case 'UDP': return '#a855f7'; // Purple
+          default: return '#38bdf8';
+        }
+      }
+    }
+
+    class VisualEffect {
+      constructor(type, x, y, color) {
+        this.type = type; // 'drop', 'pulse'
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.radius = 4;
+        this.maxRadius = type === 'drop' ? 30 : 22;
+        this.life = 1.0;
+        this.particles = [];
+
+        if (type === 'drop') {
+          for (let i = 0; i < 10; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const spd = 1 + Math.random() * 2.5;
+            this.particles.push({
+              x, y,
+              vx: Math.cos(angle) * spd,
+              vy: Math.sin(angle) * spd,
+              size: 2 + Math.random() * 2
+            });
+          }
+        }
+      }
+
+      update(dt) {
+        this.life -= dt * 2.2;
+        this.radius += (this.maxRadius - this.radius) * dt * 6;
+        this.particles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+        });
+      }
+    }
+
+    // --- MAIN APPLICATION CONTROLLER ---
+    class NetworkApp {
+      constructor() {
+        this.canvas = document.getElementById('sim-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        
+        // Nodes and Links
+        this.nodes = [];
+        this.links = [];
+        this.packets = [];
+        this.effects = [];
+
+        // Global Parameters
+        this.globalLatency = 120;
+        this.globalLossRate = 0;
+        this.globalQueueCapacity = 8;
+        this.globalTTL = 8;
+
+        // Interaction State
+        this.selectedTool = 'select'; // 'select', 'link'
+        this.selectedNode = null;
+        this.selectedPacket = null;
+        this.selectedLink = null;
+        this.draggedNode = null;
+        this.linkSourceNode = null;
+        this.mousePos = { x: 0, y: 0 };
+
+        // Playback Engine State
+        this.isPlaying = true;
+        this.speedMultiplier = 1.0;
+        this.lastFrameTime = performance.now();
+        this.isAutoStreaming = false;
+        this.autoStreamTimer = null;
+
+        // Statistics
+        this.stats = {
+          sent: 0,
+          delivered: 0,
+          dropped: 0,
+          rttHistory: [],
+          throughputHistory: []
+        };
+
+        // Logs
+        this.logs = [];
+        this.logFilter = 'ALL';
+        this.logSearchTerm = '';
+
+        this.init();
+      }
+
+      init() {
+        this.resizeCanvas();
+        window.addEventListener('resize', () => this.resizeCanvas());
+
+        this.setupEventListeners();
+        this.setupSparklineChart();
+        this.loadPreset('multi-hop');
+
+        // Start Loop
+        requestAnimationFrame((t) => this.animationLoop(t));
+      }
+
+      resizeCanvas() {
+        const rect = this.canvas.parentElement.getBoundingClientRect();
+        this.canvas.width = rect.width * window.devicePixelRatio;
+        this.canvas.height = rect.height * window.devicePixelRatio;
+        this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      }
+
+      // --- PRESETS TOPOLOGY GENERATOR ---
+      loadPreset(presetType) {
+        this.nodes = [];
+        this.links = [];
+        this.packets = [];
+        this.effects = [];
+        this.selectedNode = null;
+        this.selectedPacket = null;
+        this.selectedLink = null;
+
+        const w = this.canvas.width / window.devicePixelRatio;
+        const h = this.canvas.height / window.devicePixelRatio;
+
+        if (presetType === 'client-server') {
+          const c1 = new Node(1, 'client', 'Client A', w * 0.25, h * 0.5, '192.168.1.10');
+          const s1 = new Node(2, 'server', 'Web Server', w * 0.75, h * 0.5, '10.0.0.80');
+          this.nodes.push(c1, s1);
+          this.links.push(new Link('l1', 1, 2, this.globalLatency, this.globalLossRate));
+        } 
+        else if (presetType === 'star') {
+          const sw = new Node(1, 'switch', 'Core Switch', w * 0.5, h * 0.5, '192.168.1.1');
+          const c1 = new Node(2, 'client', 'PC-1', w * 0.25, h * 0.25, '192.168.1.10');
+          const c2 = new Node(3, 'client', 'PC-2', w * 0.25, h * 0.75, '192.168.1.11');
+          const c3 = new Node(4, 'client', 'PC-3', w * 0.75, h * 0.25, '192.168.1.12');
+          const s1 = new Node(5, 'server', 'File Server', w * 0.75, h * 0.75, '192.168.1.100');
+          this.nodes.push(sw, c1, c2, c3, s1);
+          this.links.push(
+            new Link('l1', 1, 2, 80, 0),
+            new Link('l2', 1, 3, 80, 0),
+            new Link('l3', 1, 4, 80, 0),
+            new Link('l4', 1, 5, 80, 0)
+          );
+        }
+        else if (presetType === 'multi-hop') {
+          const c1 = new Node(1, 'client', 'Client Node', w * 0.15, h * 0.5, '10.0.0.2');
+          const r1 = new Node(2, 'router', 'Gateway R1', w * 0.35, h * 0.35, '10.0.0.1');
+          const r2 = new Node(3, 'router', 'Core R2', w * 0.65, h * 0.65, '172.16.0.1');
+          const s1 = new Node(4, 'server', 'Target Server', w * 0.85, h * 0.5, '192.168.1.50');
+          this.nodes.push(c1, r1, r2, s1);
+          this.links.push(
+            new Link('l1', 1, 2, 90, 0),
+            new Link('l2', 2, 3, 140, 0),
+            new Link('l3', 3, 4, 90, 0)
+          );
+        }
+        else if (presetType === 'mesh') {
+          const c1 = new Node(1, 'client', 'Client A', w * 0.15, h * 0.5, '10.0.1.5');
+          const r1 = new Node(2, 'router', 'Router Alpha', w * 0.35, h * 0.25, '10.0.1.1');
+          const r2 = new Node(3, 'router', 'Router Beta', w * 0.35, h * 0.75, '10.0.2.1');
+          const r3 = new Node(4, 'router', 'Router Gamma', w * 0.65, h * 0.25, '10.0.3.1');
+          const r4 = new Node(5, 'router', 'Router Delta', w * 0.65, h * 0.75, '10.0.4.1');
+          const s1 = new Node(6, 'server', 'Server B', w * 0.85, h * 0.5, '10.0.5.100');
+          this.nodes.push(c1, r1, r2, r3, r4, s1);
+          this.links.push(
+            new Link('l1', 1, 2, 70), new Link('l2', 1, 3, 70),
+            new Link('l3', 2, 3, 50), new Link('l4', 2, 4, 120),
+            new Link('l5', 3, 5, 120), new Link('l6', 4, 5, 50),
+            new Link('l7', 4, 6, 70), new Link('l8', 5, 6, 70)
+          );
+        }
+        else if (presetType === 'datacenter') {
+          const c1 = new Node(1, 'client', 'User Client', w * 0.15, h * 0.5, '192.168.1.15');
+          const r1 = new Node(2, 'router', 'Edge Router', w * 0.35, h * 0.5, '1.1.1.1');
+          const sw1 = new Node(3, 'switch', 'Load Balancer', w * 0.55, h * 0.5, '10.0.0.1');
+          const s1 = new Node(4, 'server', 'Web App #1', w * 0.8, h * 0.25, '10.0.0.11');
+          const s2 = new Node(5, 'server', 'Web App #2', w * 0.8, h * 0.5, '10.0.0.12');
+          const s3 = new Node(6, 'server', 'DB Server', w * 0.8, h * 0.75, '10.0.0.20');
+          this.nodes.push(c1, r1, sw1, s1, s2, s3);
+          this.links.push(
+            new Link('l1', 1, 2, 100), new Link('l2', 2, 3, 60),
+            new Link('l3', 3, 4, 30), new Link('l4', 3, 5, 30), new Link('l5', 3, 6, 30)
+          );
+        }
+
+        this.updateNodeSelectDropdowns();
+        this.updateInspector();
+        this.addLogEntry('SYSTEM', 'INFO', `Topology preset '${presetType}' loaded successfully.`);
+      }
+
+      addNode(type) {
+        const id = this.nodes.length > 0 ? Math.max(...this.nodes.map(n => n.id)) + 1 : 1;
+        const w = this.canvas.width / window.devicePixelRatio;
+        const h = this.canvas.height / window.devicePixelRatio;
+        const names = { client: 'Client', router: 'Router', switch: 'Switch', server: 'Server' };
+        
+        const node = new Node(
+          id, 
+          type, 
+          `${names[type]} ${id}`, 
+          w * 0.4 + (Math.random() - 0.5) * 100, 
+          h * 0.4 + (Math.random() - 0.5) * 100
+        );
+        this.nodes.push(node);
+        this.updateNodeSelectDropdowns();
+        this.selectedNode = node;
+        this.updateInspector();
+        this.addLogEntry('SYSTEM', 'INFO', `Created new ${type} node: ${node.name} (${node.ip})`);
+      }
+
+      updateNodeSelectDropdowns() {
+        const srcSel = document.getElementById('packet-src');
+        const dstSel = document.getElementById('packet-dst');
+        srcSel.innerHTML = '';
+        dstSel.innerHTML = '';
+
+        this.nodes.forEach((n, idx) => {
+          const opt1 = document.createElement('option');
+          opt1.value = n.id;
+          opt1.textContent = `${n.name} (${n.ip})`;
+          srcSel.appendChild(opt1);
+
+          const opt2 = document.createElement('option');
+          opt2.value = n.id;
+          opt2.textContent = `${n.name} (${n.ip})`;
+          if (idx === 1 || (idx === this.nodes.length - 1 && idx !== 0)) opt2.selected = true;
+          dstSel.appendChild(opt2);
+        });
+      }
+
+      // --- SHORTEST PATH ROUTING (DIJKSTRA) ---
+      findShortestPath(srcId, dstId) {
+        if (srcId === dstId) return [srcId];
+
+        const distances = {};
+        const previous = {};
+        const unvisited = new Set();
+
+        this.nodes.forEach(n => {
+          distances[n.id] = Infinity;
+          previous[n.id] = null;
+          unvisited.add(n.id);
+        });
+
+        distances[srcId] = 0;
+
+        while (unvisited.size > 0) {
+          // Get unvisited node with smallest distance
+          let current = null;
+          let minDist = Infinity;
+          unvisited.forEach(id => {
+            if (distances[id] < minDist) {
+              minDist = distances[id];
+              current = id;
+            }
+          });
+
+          if (current === null || distances[current] === Infinity) break;
+          if (current === dstId) break;
+
+          unvisited.delete(current);
+
+          // Neighbors connected by links
+          const neighbors = this.getNeighbors(current);
+          neighbors.forEach(({ neighborId, latency }) => {
+            if (unvisited.has(neighborId)) {
+              const alt = distances[current] + latency;
+              if (alt < distances[neighborId]) {
+                distances[neighborId] = alt;
+                previous[neighborId] = current;
+              }
+            }
+          });
+        }
+
+        // Reconstruct path
+        const path = [];
+        let curr = dstId;
+        while (curr !== null) {
+          path.unshift(curr);
+          curr = previous[curr];
+        }
+
+        return path[0] === srcId ? path : null;
+      }
+
+      getNeighbors(nodeId) {
+        const neighbors = [];
+        this.links.forEach(l => {
+          if (l.nodeAId === nodeId) neighbors.push({ neighborId: l.nodeBId, latency: l.latency });
+          else if (l.nodeBId === nodeId) neighbors.push({ neighborId: l.nodeAId, latency: l.latency });
+        });
+        return neighbors;
+      }
+
+      getLinkBetween(nodeAId, nodeBId) {
+        return this.links.find(l => (l.nodeAId === nodeAId && l.nodeBId === nodeBId) || (l.nodeAId === nodeBId && l.nodeBId === nodeAId));
+      }
+
+      // --- PACKET TRANSMISSION LOGIC ---
+      transmitPacket(srcId, dstId, protocol, payload, extra = {}) {
+        const srcNode = this.nodes.find(n => n.id === srcId);
+        const dstNode = this.nodes.find(n => n.id === dstId);
+        if (!srcNode || !dstNode) return;
+
+        const path = this.findShortestPath(srcId, dstId);
+        if (!path || path.length < 2) {
+          this.addLogEntry('ROUTER', 'DROPPED', `No route to host from ${srcNode.name} to ${dstNode.name}`, protocol);
+          return;
+        }
+
+        const pkt = new Packet({
+          srcId: srcNode.id,
+          dstId: dstNode.id,
+          srcIp: srcNode.ip,
+          dstIp: dstNode.ip,
+          protocol: protocol,
+          payload: payload,
+          ttl: this.globalTTL,
+          path: path,
+          seqNum: extra.seqNum,
+          ackNum: extra.ackNum,
+          srcPort: extra.srcPort,
+          dstPort: extra.dstPort
+        });
+
+        pkt.hopHistory.push({ nodeName: srcNode.name, action: 'Spawned' });
+        this.packets.push(pkt);
+        srcNode.sent++;
+        this.stats.sent++;
+
+        this.addLogEntry('HOST', 'SENT', `${srcNode.name} -> ${dstNode.name} [${protocol}] (Seq=${pkt.seqNum}, TTL=${pkt.ttl})`, protocol, pkt);
+        this.updateStatsUI();
+      }
+
+      // --- SIMULATION TICK & ANIMATION LOOP ---
+      animationLoop(now) {
+        const dt = Math.min((now - this.lastFrameTime) / 1000, 0.1) * (this.isPlaying ? this.speedMultiplier : 0);
+        this.lastFrameTime = now;
+
+        if (this.isPlaying) {
+          this.updateSimulation(dt);
+        }
+
+        this.renderCanvas();
+        this.updateSparklineData();
+
+        requestAnimationFrame((t) => this.animationLoop(t));
+      }
+
+      updateSimulation(dt) {
+        // Update Packets
+        for (let i = this.packets.length - 1; i >= 0; i--) {
+          const p = this.packets[i];
+
+          if (p.status === 'transmitting') {
+            const currNodeId = p.path[p.currentHopIdx];
+            const nextNodeId = p.path[p.currentHopIdx + 1];
+            const link = this.getLinkBetween(currNodeId, nextNodeId);
+
+            if (!link) {
+              this.dropPacket(p, 'Link Failure');
+              continue;
+            }
+
+            // Advance movement along link
+            const travelSpeed = 1000 / link.latency; // speed factor
+            p.progress += dt * travelSpeed * 0.8;
+
+            // Check halfway packet drop probability
+            if (!p.lossChecked && p.progress > 0.5) {
+              p.lossChecked = true;
+              const lossProb = Math.max(link.lossRate, this.globalLossRate / 100);
+              if (Math.random() < lossProb) {
+                this.dropPacket(p, 'Link Loss');
+                continue;
+              }
+            }
+
+            // Arrived at next hop
+            if (p.progress >= 1.0) {
+              p.progress = 0;
+              p.lossChecked = false;
+              p.currentHopIdx++;
+              p.ttl--;
+
+              const arrivedNode = this.nodes.find(n => n.id === nextNodeId);
+              if (!arrivedNode) continue;
+
+              p.hopHistory.push({ nodeName: arrivedNode.name, action: 'Forwarded' });
+
+              // Check TTL Expiration
+              if (p.ttl <= 0) {
+                this.dropPacket(p, 'TTL Expired', arrivedNode);
+                continue;
+              }
+
+              // Check Queue Overflow on Intermediate Router/Switch
+              if (p.currentHopIdx < p.path.length - 1) {
+                if (arrivedNode.type === 'router' || arrivedNode.type === 'switch') {
+                  if (arrivedNode.queue.length >= this.globalQueueCapacity) {
+                    this.dropPacket(p, 'Queue Overflow', arrivedNode);
+                    continue;
+                  }
+                }
+              }
+
+              // Reached Final Destination Node!
+              if (p.currentHopIdx === p.path.length - 1) {
+                this.deliverPacket(p, arrivedNode);
+              }
+            }
+          }
+        }
+
+        // Update Effects
+        for (let i = this.effects.length - 1; i >= 0; i--) {
+          this.effects[i].update(dt);
+          if (this.effects[i].life <= 0) this.effects.splice(i, 1);
+        }
+      }
+
+      deliverPacket(pkt, destNode) {
+        pkt.status = 'delivered';
+        destNode.received++;
+        this.stats.delivered++;
+
+        const rtt = Math.round(performance.now() - pkt.spawnTime);
+        this.stats.rttHistory.push(rtt);
+        if (this.stats.rttHistory.length > 20) this.stats.rttHistory.shift();
+
+        this.effects.push(new VisualEffect('pulse', destNode.x, destNode.y, '#10b981'));
+        this.addLogEntry('HOST', 'DELIVERED', `Reached ${destNode.name} in ${rtt}ms (RTT)`, pkt.protocol, pkt);
+
+        // Protocol Response Logic (Interactive Automated Handshakes & Replies)
+        if (pkt.protocol === 'ICMP') {
+          // ICMP Request -> Spawn ICMP Echo Reply back
+          setTimeout(() => {
+            if (this.nodes.includes(destNode)) {
+              this.transmitPacket(destNode.id, pkt.srcId, 'ICMP', 'Echo Reply (Pong)', { seqNum: pkt.seqNum + 1 });
+            }
+          }, 300);
+        } 
+        else if (pkt.protocol === 'TCP_SYN') {
+          // TCP Handshake Step 1 -> Server replies with TCP SYN-ACK
+          setTimeout(() => {
+            this.transmitPacket(destNode.id, pkt.srcId, 'TCP_SYNACK', 'SYN-ACK', { seqNum: 5000, ackNum: pkt.seqNum + 1 });
+          }, 250);
+        }
+        else if (pkt.protocol === 'TCP_SYNACK') {
+          // TCP Handshake Step 2 -> Client replies with final TCP ACK
+          setTimeout(() => {
+            this.transmitPacket(destNode.id, pkt.srcId, 'TCP_ACK', 'ACK (Established)', { seqNum: pkt.ackNum, ackNum: pkt.seqNum + 1 });
+          }, 250);
+        }
+        else if (pkt.protocol === 'TCP_DATA') {
+          // TCP Data -> Replies with TCP ACK
+          setTimeout(() => {
+            this.transmitPacket(destNode.id, pkt.srcId, 'TCP_ACK', 'ACK Data Received', { seqNum: pkt.ackNum, ackNum: pkt.seqNum + pkt.payload.length });
+          }, 200);
+        }
+
+        // Clean up delivered packet after short delay
+        setTimeout(() => {
+          const idx = this.packets.indexOf(pkt);
+          if (idx !== -1) this.packets.splice(idx, 1);
+        }, 1200);
+
+        this.updateStatsUI();
+      }
+
+      dropPacket(pkt, reason, atNode) {
+        pkt.status = 'dropped';
+        pkt.dropReason = reason;
+        this.stats.dropped++;
+
+        const currNode = atNode || this.nodes.find(n => n.id === pkt.path[pkt.currentHopIdx]);
+        const x = currNode ? currNode.x : this.canvas.width/2;
+        const y = currNode ? currNode.y : this.canvas.height/2;
+
+        if (currNode) currNode.dropped++;
+
+        this.effects.push(new VisualEffect('drop', x, y, '#f43f5e'));
+        this.addLogEntry('ROUTER', 'DROPPED', `Packet dropped: ${reason} at ${currNode ? currNode.name : 'link'}`, pkt.protocol, pkt);
+
+        // Remove dropped packet from array
+        setTimeout(() => {
+          const idx = this.packets.indexOf(pkt);
+          if (idx !== -1) this.packets.splice(idx, 1);
+        }, 600);
+
+        this.updateStatsUI();
+      }
+
+      // --- CANVAS RENDERING ROUTINES ---
+      renderCanvas() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // 1. Render Connections (Links)
+        this.links.forEach(l => {
+          const nA = this.nodes.find(n => n.id === l.nodeAId);
+          const nB = this.nodes.find(n => n.id === l.nodeBId);
+          if (!nA || !nB) return;
+
+          const isSelected = this.selectedLink === l;
+
+          this.ctx.save();
+          this.ctx.beginPath();
+          this.ctx.moveTo(nA.x, nA.y);
+          this.ctx.lineTo(nB.x, nB.y);
+
+          this.ctx.strokeStyle = isSelected ? '#38bdf8' : '#334155';
+          this.ctx.lineWidth = isSelected ? 3 : 2;
+          if (isSelected) {
+            this.ctx.shadowColor = '#38bdf8';
+            this.ctx.shadowBlur = 10;
+          }
+          this.ctx.stroke();
+          this.ctx.restore();
+
+          // Link Latency / Info Badge in middle
+          const midX = (nA.x + nB.x) / 2;
+          const midY = (nA.y + nB.y) / 2;
+          
+          this.ctx.fillStyle = '#0f172a';
+          this.ctx.fillRect(midX - 22, midY - 9, 44, 18);
+          this.ctx.strokeStyle = '#1e293b';
+          this.ctx.strokeRect(midX - 22, midY - 9, 44, 18);
+
+          this.ctx.font = '9px JetBrains Mono, monospace';
+          this.ctx.fillStyle = '#94a3b8';
+          this.ctx.textAlign = 'center';
+          this.ctx.textBaseline = 'middle';
+          this.ctx.fillText(`${l.latency}ms`, midX, midY);
+        });
+
+        // 2. Active Link Creation Drag Line
+        if (this.selectedTool === 'link' && this.linkSourceNode) {
+          this.ctx.save();
+          this.ctx.beginPath();
+          this.ctx.moveTo(this.linkSourceNode.x, this.linkSourceNode.y);
+          this.ctx.lineTo(this.mousePos.x, this.mousePos.y);
+          this.ctx.strokeStyle = '#0ea5e9';
+          this.ctx.setLineDash([5, 5]);
+          this.ctx.lineWidth = 2;
+          this.ctx.stroke();
+          this.ctx.restore();
+        }
+
+        // 3. Render Nodes
+        this.nodes.forEach(n => {
+          const isSelected = this.selectedNode === n;
+
+          this.ctx.save();
+          this.ctx.translate(n.x, n.y);
+
+          // Node Outer Glow
+          if (isSelected) {
+            this.ctx.beginPath();
+            this.ctx.arc(0, 0, n.radius + 6, 0, Math.PI * 2);
+            this.ctx.fillStyle = 'rgba(14, 165, 233, 0.2)';
+            this.ctx.fill();
+            this.ctx.strokeStyle = '#0ea5e9';
+            this.ctx.lineWidth = 2;
+            this.ctx.stroke();
+          }
+
+          // Main Node Circle Gradient Body
+          const grad = this.ctx.createRadialGradient(0, 0, 2, 0, 0, n.radius);
+          grad.addColorStop(0, '#1e293b');
+          grad.addColorStop(1, '#0f172a');
+
+          this.ctx.beginPath();
+          this.ctx.arc(0, 0, n.radius, 0, Math.PI * 2);
+          this.ctx.fillStyle = grad;
+          this.ctx.fill();
+          this.ctx.strokeStyle = this.getNodeBorderColor(n.type);
+          this.ctx.lineWidth = 2;
+          this.ctx.stroke();
+
+          // Render Vector Icon in Node Center
+          this.drawNodeIcon(n.type);
+
+          // Queue Buffer Meter (for Routers / Switches)
+          if (n.type === 'router' || n.type === 'switch') {
+            const qCount = n.queue.length;
+            if (qCount > 0) {
+              const barW = 28;
+              const barH = 4;
+              const fillW = (qCount / this.globalQueueCapacity) * barW;
+              this.ctx.fillStyle = '#0f172a';
+              this.ctx.fillRect(-barW/2, n.radius + 4, barW, barH);
+              this.ctx.fillStyle = qCount > 5 ? '#f43f5e' : '#eab308';
+              this.ctx.fillRect(-barW/2, n.radius + 4, fillW, barH);
+            }
+          }
+
+          // Node Label & IP
+          this.ctx.font = '600 11px Inter, sans-serif';
+          this.ctx.fillStyle = '#f8fafc';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText(n.name, 0, n.radius + 16);
+
+          this.ctx.font = '10px JetBrains Mono, monospace';
+          this.ctx.fillStyle = '#64748b';
+          this.ctx.fillText(n.ip, 0, n.radius + 28);
+
+          this.ctx.restore();
+        });
+
+        // 4. Render Animated Packets
+        this.packets.forEach(p => {
+          if (p.status !== 'transmitting') return;
+
+          const nA = this.nodes.find(n => n.id === p.path[p.currentHopIdx]);
+          const nB = this.nodes.find(n => n.id === p.path[p.currentHopIdx + 1]);
+          if (!nA || !nB) return;
+
+          const px = nA.x + (nB.x - nA.x) * p.progress;
+          const py = nA.y + (nB.y - nA.y) * p.progress;
+
+          this.ctx.save();
+          this.ctx.translate(px, py);
+
+          // Motion Blur Trail Line
+          const dx = nB.x - nA.x;
+          const dy = nB.y - nA.y;
+          const angle = Math.atan2(dy, dx);
+          
+          this.ctx.rotate(angle);
+          this.ctx.beginPath();
+          this.ctx.moveTo(-18, 0);
+          this.ctx.lineTo(0, 0);
+          this.ctx.strokeStyle = p.color;
+          this.ctx.lineWidth = 3;
+          this.ctx.globalAlpha = 0.5;
+          this.ctx.stroke();
+          this.ctx.globalAlpha = 1.0;
+
+          // Glowing Orb
+          this.ctx.beginPath();
+          this.ctx.arc(0, 0, 7, 0, Math.PI * 2);
+          this.ctx.fillStyle = p.color;
+          this.ctx.shadowColor = p.color;
+          this.ctx.shadowBlur = 12;
+          this.ctx.fill();
+
+          // Protocol Label Tag Badge
+          this.ctx.rotate(-angle); // Keep text horizontal
+          this.ctx.font = 'bold 9px Inter, sans-serif';
+          this.ctx.fillStyle = '#ffffff';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText(p.protocol.replace('TCP_', ''), 0, -11);
+
+          this.ctx.restore();
+        });
+
+        // 5. Render Visual Effects (Explosions/Pulses)
+        this.effects.forEach(e => {
+          this.ctx.save();
+          this.ctx.beginPath();
+          this.ctx.arc(e.x, e.y, Math.max(1, e.radius), 0, Math.PI * 2);
+          this.ctx.strokeStyle = e.color;
+          this.ctx.globalAlpha = Math.max(0, e.life);
+          this.ctx.lineWidth = 2;
+          this.ctx.stroke();
+
+          e.particles.forEach(pt => {
+            this.ctx.beginPath();
+            this.ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+            this.ctx.fillStyle = e.color;
+            this.ctx.fill();
+          });
+          this.ctx.restore();
+        });
+      }
+
+      getNodeBorderColor(type) {
+        switch(type) {
+          case 'client': return '#38bdf8';
+          case 'router': return '#c084fc';
+          case 'switch': return '#34d399';
+          case 'server': return '#fbbf24';
+          default: return '#94a3b8';
+        }
+      }
+
+      drawNodeIcon(type) {
+        this.ctx.strokeStyle = '#e2e8f0';
+        this.ctx.lineWidth = 1.5;
+
+        if (type === 'client') {
+          // PC Screen
+          this.ctx.strokeRect(-7, -7, 14, 10);
+          this.ctx.beginPath();
+          this.ctx.moveTo(-3, 6); this.ctx.lineTo(3, 6);
+          this.ctx.moveTo(-5, 8); this.ctx.lineTo(5, 8);
+          this.ctx.stroke();
+        } 
+        else if (type === 'router') {
+          // Circular Arrows
+          this.ctx.beginPath();
+          this.ctx.arc(0, 0, 7, 0, Math.PI * 1.5);
+          this.ctx.stroke();
+        } 
+        else if (type === 'switch') {
+          // Exchange Arrows
+          this.ctx.beginPath();
+          this.ctx.moveTo(-6, -3); this.ctx.lineTo(6, -3);
+          this.ctx.moveTo(3, -5); this.ctx.lineTo(6, -3); this.ctx.lineTo(3, -1);
+          this.ctx.moveTo(6, 3); this.ctx.lineTo(-6, 3);
+          this.ctx.moveTo(-3, 1); this.ctx.lineTo(-6, 3); this.ctx.lineTo(-3, 5);
+          this.ctx.stroke();
+        } 
+        else if (type === 'server') {
+          // Server Blades
+          this.ctx.strokeRect(-7, -7, 14, 4);
+          this.ctx.strokeRect(-7, -1, 14, 4);
+          this.ctx.strokeRect(-7, 5, 14, 4);
+        }
+      }
+
+      // --- EVENT LISTENERS & USER INTERACTION ---
+      setupEventListeners() {
+        // Canvas Drag & Select Handlers
+        this.canvas.addEventListener('mousedown', (e) => this.handleCanvasMouseDown(e));
+        this.canvas.addEventListener('mousemove', (e) => this.handleCanvasMouseMove(e));
+        this.canvas.addEventListener('mouseup', () => this.handleCanvasMouseUp());
+
+        // Presets Dropdown
+        document.getElementById('preset-select').addEventListener('change', (e) => {
+          this.loadPreset(e.target.value);
+        });
+
+        // Quick Tools Buttons
+        const toolSelectBtn = document.getElementById('tool-select');
+        const toolLinkBtn = document.getElementById('tool-link');
+
+        toolSelectBtn.addEventListener('click', () => {
+          this.selectedTool = 'select';
+          toolSelectBtn.classList.add('bg-cyan-600', 'text-white');
+          toolLinkBtn.classList.remove('bg-cyan-600', 'text-white');
+        });
+
+        toolLinkBtn.addEventListener('click', () => {
+          this.selectedTool = 'link';
+          toolLinkBtn.classList.add('bg-cyan-600', 'text-white');
+          toolSelectBtn.classList.remove('bg-cyan-600', 'text-white');
+        });
+
+        document.getElementById('btn-clear').addEventListener('click', () => {
+          this.nodes = [];
+          this.links = [];
+          this.packets = [];
+          this.selectedNode = null;
+          this.updateNodeSelectDropdowns();
+          this.updateInspector();
+        });
+
+        // Send Packet Trigger
+        document.getElementById('btn-send-packet').addEventListener('click', () => {
+          const srcId = parseInt(document.getElementById('packet-src').value);
+          const dstId = parseInt(document.getElementById('packet-dst').value);
+          const proto = document.getElementById('packet-proto').value;
+          const payload = document.getElementById('packet-payload').value;
+
+          if (proto === 'TCP_HANDSHAKE') {
+            this.transmitPacket(srcId, dstId, 'TCP_SYN', 'SYN (Connection Req)');
+          } else {
+            this.transmitPacket(srcId, dstId, proto, payload);
+          }
+        });
+
+        // Auto Continuous Streaming Toggle
+        document.getElementById('btn-toggle-stream').addEventListener('click', () => {
+          this.isAutoStreaming = !this.isAutoStreaming;
+          const btn = document.getElementById('btn-toggle-stream');
+          const icon = document.getElementById('stream-icon');
+
+          if (this.isAutoStreaming) {
+            btn.classList.add('bg-cyan-600', 'text-white');
+            icon.classList.add('animate-spin');
+            this.autoStreamTimer = setInterval(() => {
+              const srcId = parseInt(document.getElementById('packet-src').value);
+              const dstId = parseInt(document.getElementById('packet-dst').value);
+              const proto = document.getElementById('packet-proto').value;
+              this.transmitPacket(srcId, dstId, proto === 'TCP_HANDSHAKE' ? 'UDP' : proto, 'Stream Payload');
+            }, 500);
+          } else {
+            btn.classList.remove('bg-cyan-600', 'text-white');
+            icon.classList.remove('animate-spin');
+            clearInterval(this.autoStreamTimer);
+          }
+        });
+
+        // Parameters Sliders
+        const bindSlider = (id, targetProp, formatFn) => {
+          const slider = document.getElementById(`param-${id}`);
+          const valDisplay = document.getElementById(`val-${id}`);
+          slider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            this[targetProp] = val;
+            valDisplay.textContent = formatFn(val);
+          });
+        };
+
+        bindSlider('latency', 'globalLatency', v => `${v} ms`);
+        bindSlider('loss', 'globalLossRate', v => `${v}%`);
+        bindSlider('queue', 'globalQueueCapacity', v => `${v} Packets`);
+        bindSlider('ttl', 'globalTTL', v => `${v} Hops`);
+
+        // Playback Controls
+        const btnPlay = document.getElementById('btn-play');
+        const iconPlay = document.getElementById('icon-play');
+        const iconPause = document.getElementById('icon-pause');
+
+        btnPlay.addEventListener('click', () => {
+          this.isPlaying = !this.isPlaying;
+          if (this.isPlaying) {
+            iconPlay.classList.add('hidden');
+            iconPause.classList.remove('hidden');
+          } else {
+            iconPlay.classList.remove('hidden');
+            iconPause.classList.add('hidden');
+          }
+        });
+
+        document.getElementById('btn-step').addEventListener('click', () => {
+          this.isPlaying = false;
+          iconPlay.classList.remove('hidden');
+          iconPause.classList.add('hidden');
+          this.updateSimulation(0.1);
+        });
+
+        document.querySelectorAll('.speed-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active', 'bg-slate-700', 'text-cyan-400', 'font-bold'));
+            e.target.classList.add('active', 'bg-slate-700', 'text-cyan-400', 'font-bold');
+            this.speedMultiplier = parseFloat(e.target.dataset.speed);
+          });
+        });
+
+        // Tabs Toggle in Right Sidebar
+        const tabInspector = document.getElementById('tab-inspector');
+        const tabStats = document.getElementById('tab-stats');
+        const panelInspector = document.getElementById('panel-inspector');
+        const panelStats = document.getElementById('panel-stats');
+
+        tabInspector.addEventListener('click', () => {
+          tabInspector.classList.add('text-cyan-400', 'border-cyan-500', 'bg-slate-800/40');
+          tabStats.classList.remove('text-cyan-400', 'border-cyan-500', 'bg-slate-800/40');
+          panelInspector.classList.remove('hidden');
+          panelStats.classList.add('hidden');
+        });
+
+        tabStats.addEventListener('click', () => {
+          tabStats.classList.add('text-cyan-400', 'border-cyan-500', 'bg-slate-800/40');
+          tabInspector.classList.remove('text-cyan-400', 'border-cyan-500', 'bg-slate-800/40');
+          panelStats.classList.remove('hidden');
+          panelInspector.classList.add('hidden');
+        });
+
+        // Log Console Filtering & Search
+        document.querySelectorAll('.log-filter').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.log-filter').forEach(b => b.classList.remove('active', 'bg-cyan-950', 'border', 'border-cyan-800', 'text-cyan-300'));
+            e.target.classList.add('active', 'bg-cyan-950', 'border', 'border-cyan-800', 'text-cyan-300');
+            this.logFilter = e.target.dataset.filter;
+            this.renderLogTable();
+          });
+        });
+
+        document.getElementById('log-search').addEventListener('input', (e) => {
+          this.logSearchTerm = e.target.value.toLowerCase();
+          this.renderLogTable();
+        });
+
+        document.getElementById('btn-clear-log').addEventListener('click', () => {
+          this.logs = [];
+          this.renderLogTable();
+        });
+      }
+
+      handleCanvasMouseDown(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const clickedNode = this.nodes.find(n => Math.hypot(n.x - mouseX, n.y - mouseY) <= n.radius);
+
+        if (this.selectedTool === 'select') {
+          if (clickedNode) {
+            this.draggedNode = clickedNode;
+            this.selectedNode = clickedNode;
+            this.selectedLink = null;
+          } else {
+            // Check link click
+            const clickedLink = this.links.find(l => {
+              const nA = this.nodes.find(n => n.id === l.nodeAId);
+              const nB = this.nodes.find(n => n.id === l.nodeBId);
+              if (!nA || !nB) return false;
+              return this.distToSegment({ x: mouseX, y: mouseY }, nA, nB) < 8;
+            });
+
+            this.selectedLink = clickedLink || null;
+            this.selectedNode = null;
+          }
+          this.updateInspector();
+        } 
+        else if (this.selectedTool === 'link') {
+          if (clickedNode) {
+            if (!this.linkSourceNode) {
+              this.linkSourceNode = clickedNode;
+            } else if (this.linkSourceNode !== clickedNode) {
+              // Create Link
+              const exists = this.getLinkBetween(this.linkSourceNode.id, clickedNode.id);
+              if (!exists) {
+                const newLink = new Link(
+                  'l_' + Date.now(),
+                  this.linkSourceNode.id,
+                  clickedNode.id,
+                  this.globalLatency,
+                  this.globalLossRate
+                );
+                this.links.push(newLink);
+                this.addLogEntry('SYSTEM', 'INFO', `Created link between ${this.linkSourceNode.name} and ${clickedNode.name}`);
+              }
+              this.linkSourceNode = null;
+            }
+          } else {
+            this.linkSourceNode = null;
+          }
+        }
+      }
+
+      handleCanvasMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        this.mousePos.x = e.clientX - rect.left;
+        this.mousePos.y = e.clientY - rect.top;
+
+        if (this.draggedNode) {
+          this.draggedNode.x = this.mousePos.x;
+          this.draggedNode.y = this.mousePos.y;
+        }
+      }
+
+      handleCanvasMouseUp() {
+        this.draggedNode = null;
+      }
+
+      distToSegment(p, v, w) {
+        const l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
+        if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
+        let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
+      }
+
+      // --- INSPECTOR PANEL UPDATER ---
+      updateInspector(packetTarget = null) {
+        const emptyState = document.getElementById('inspector-empty');
+        const contentArea = document.getElementById('inspector-content');
+
+        const targetPkt = packetTarget || this.selectedPacket;
+
+        if (targetPkt) {
+          emptyState.classList.add('hidden');
+          contentArea.classList.remove('hidden');
+
+          contentArea.innerHTML = `
+            <div class="bg-slate-950 p-3 rounded border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-cyan-400 uppercase">Packet Header Inspector</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold" style="background:${targetPkt.color}22; color:${targetPkt.color}">${targetPkt.protocol}</span>
+              </div>
+              <div class="text-[10px] text-slate-500 font-mono">ID: ${targetPkt.id}</div>
+            </div>
+
+            <!-- Header Fields Table -->
+            <div class="bg-slate-950 rounded border border-slate-800 p-2.5 space-y-1.5 font-mono">
+              <div class="text-[10px] text-slate-400 uppercase font-bold border-b border-slate-800 pb-1">Network Layer (IP)</div>
+              <div class="flex justify-between"><span class="text-slate-500">Source IP:</span><span class="text-slate-200">${targetPkt.srcIp}</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Dest IP:</span><span class="text-slate-200">${targetPkt.dstIp}</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">TTL Remaining:</span><span class="text-purple-400 font-bold">${targetPkt.ttl} Hops</span></div>
+
+              <div class="text-[10px] text-slate-400 uppercase font-bold border-b border-slate-800 pt-2 pb-1">Transport Layer</div>
+              <div class="flex justify-between"><span class="text-slate-500">Src Port:</span><span class="text-slate-200">${targetPkt.srcPort}</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Dst Port:</span><span class="text-slate-200">${targetPkt.dstPort}</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Sequence #:</span><span class="text-yellow-400">${targetPkt.seqNum}</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Ack #:</span><span class="text-emerald-400">${targetPkt.ackNum}</span></div>
+            </div>
+
+            <!-- Payload Hex / String Preview -->
+            <div class="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-1">
+              <span class="text-[10px] text-slate-400 uppercase font-bold block">Payload Content</span>
+              <div class="bg-slate-900 p-2 rounded text-slate-300 font-mono text-[10px] break-all border border-slate-800">
+                "${targetPkt.payload}"
+              </div>
+            </div>
+
+            <!-- Hop Timeline -->
+            <div class="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-1.5">
+              <span class="text-[10px] text-slate-400 uppercase font-bold block">Hop Traversal History</span>
+              <div class="space-y-1 text-[11px]">
+                ${targetPkt.hopHistory.map(h => `
+                  <div class="flex justify-between text-slate-400">
+                    <span>&bull; ${h.nodeName}</span>
+                    <span class="text-cyan-400 text-[10px]">${h.action}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        if (this.selectedNode) {
+          const n = this.selectedNode;
+          emptyState.classList.add('hidden');
+          contentArea.classList.remove('hidden');
+
+          contentArea.innerHTML = `
+            <div class="bg-slate-950 p-3 rounded border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-slate-100">${n.name}</span>
+                <span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-slate-800 text-cyan-400">${n.type}</span>
+              </div>
+              <div class="text-[10px] text-slate-400 font-mono">IP: ${n.ip} | MAC: ${n.mac}</div>
+            </div>
+
+            <!-- Queue Buffer Status -->
+            <div class="bg-slate-950 p-3 rounded border border-slate-800 space-y-1">
+              <div class="flex justify-between text-xs">
+                <span class="text-slate-400">Buffer Queue Usage:</span>
+                <span class="font-mono text-amber-400">${n.queue.length} / ${this.globalQueueCapacity}</span>
+              </div>
+              <div class="w-full bg-slate-900 h-2 rounded overflow-hidden">
+                <div class="bg-amber-400 h-full" style="width:${(n.queue.length/this.globalQueueCapacity)*100}%"></div>
+              </div>
+            </div>
+
+            <!-- Node Statistics -->
+            <div class="grid grid-cols-3 gap-2 text-center">
+              <div class="bg-slate-950 p-2 rounded border border-slate-800">
+                <div class="text-[10px] text-slate-500">Sent</div>
+                <div class="font-bold text-slate-200 mt-0.5 font-mono">${n.sent}</div>
+              </div>
+              <div class="bg-slate-950 p-2 rounded border border-slate-800">
+                <div class="text-[10px] text-slate-500">Recv</div>
+                <div class="font-bold text-emerald-400 mt-0.5 font-mono">${n.received}</div>
+              </div>
+              <div class="bg-slate-950 p-2 rounded border border-slate-800">
+                <div class="text-[10px] text-slate-500">Drop</div>
+                <div class="font-bold text-rose-400 mt-0.5 font-mono">${n.dropped}</div>
+              </div>
+            </div>
+
+            <button onclick="app.removeSelectedNode()" class="w-full bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-rose-300 font-medium py-1.5 rounded transition text-xs mt-2">
+              Delete Node
+            </button>
+          `;
+          return;
+        }
+
+        if (this.selectedLink) {
+          const l = this.selectedLink;
+          const nA = this.nodes.find(n => n.id === l.nodeAId);
+          const nB = this.nodes.find(n => n.id === l.nodeBId);
+
+          emptyState.classList.add('hidden');
+          contentArea.classList.remove('hidden');
+
+          contentArea.innerHTML = `
+            <div class="bg-slate-950 p-3 rounded border border-slate-800 space-y-2">
+              <span class="font-bold text-slate-100 block">Link Connection</span>
+              <div class="text-xs text-slate-400">${nA ? nA.name : '?'} &bull;&mdash;&bull; ${nB ? nB.name : '?'}</div>
+            </div>
+
+            <div class="bg-slate-950 p-3 rounded border border-slate-800 space-y-3">
+              <div>
+                <label class="block text-slate-400 text-[11px] mb-1">Link Latency (ms)</label>
+                <input type="number" value="${l.latency}" onchange="app.selectedLink.latency = parseInt(this.value)" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-200 font-mono">
+              </div>
+            </div>
+
+            <button onclick="app.removeSelectedLink()" class="w-full bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-rose-300 font-medium py-1.5 rounded transition text-xs mt-2">
+              Remove Link
+            </button>
+          `;
+          return;
+        }
+
+        emptyState.classList.remove('hidden');
+        contentArea.classList.add('hidden');
+      }
+
+      removeSelectedNode() {
+        if (!this.selectedNode) return;
+        const id = this.selectedNode.id;
+        this.nodes = this.nodes.filter(n => n.id !== id);
+        this.links = this.links.filter(l => l.nodeAId !== id && l.nodeBId !== id);
+        this.selectedNode = null;
+        this.updateNodeSelectDropdowns();
+        this.updateInspector();
+      }
+
+      removeSelectedLink() {
+        if (!this.selectedLink) return;
+        this.links = this.links.filter(l => l !== this.selectedLink);
+        this.selectedLink = null;
+        this.updateInspector();
+      }
+
+      // --- LIVE EVENT LOGGING ENGINE ---
+      addLogEntry(src, status, message, protocol = 'SYSTEM', packetObj = null) {
+        const timeStr = new Date().toISOString().substr(11, 8);
+        const entry = {
+          id: 'log_' + Date.now() + Math.random(),
+          time: timeStr,
+          src,
+          status, // 'SENT', 'DELIVERED', 'DROPPED', 'INFO'
+          message,
+          protocol,
+          packetObj
+        };
+
+        this.logs.unshift(entry);
+        if (this.logs.length > 100) this.logs.pop();
+
+        this.renderLogTable();
+      }
+
+      renderLogTable() {
+        const tbody = document.getElementById('log-tbody');
+        tbody.innerHTML = '';
+
+        const filtered = this.logs.filter(l => {
+          if (this.logFilter === 'ICMP' && l.protocol !== 'ICMP') return false;
+          if (this.logFilter === 'TCP' && !l.protocol.startsWith('TCP')) return false;
+          if (this.logFilter === 'UDP' && l.protocol !== 'UDP') return false;
+          if (this.logFilter === 'DROPPED' && l.status !== 'DROPPED') return false;
+
+          if (this.logSearchTerm) {
+            return l.message.toLowerCase().includes(this.logSearchTerm) || l.protocol.toLowerCase().includes(this.logSearchTerm);
+          }
+          return true;
+        });
+
+        filtered.forEach(l => {
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-800/50 cursor-pointer transition';
+
+          let statusBadge = '';
+          if (l.status === 'SENT') statusBadge = '<span class="text-cyan-400 font-bold">[SENT]</span>';
+          else if (l.status === 'DELIVERED') statusBadge = '<span class="text-emerald-400 font-bold">[DELIVERED]</span>';
+          else if (l.status === 'DROPPED') statusBadge = '<span class="text-rose-400 font-bold">[DROPPED]</span>';
+          else statusBadge = '<span class="text-slate-400">[INFO]</span>';
+
+          tr.innerHTML = `
+            <td class="py-1 px-3 text-slate-500">${l.time}</td>
+            <td class="py-1 px-2">${statusBadge}</td>
+            <td class="py-1 px-2 text-slate-300 font-bold">${l.protocol}</td>
+            <td class="py-1 px-3 text-slate-200">${l.message}</td>
+            <td class="py-1 px-3 text-slate-400">${l.packetObj ? 'Seq=' + l.packetObj.seqNum : '-'}</td>
+            <td class="py-1 px-3 text-slate-500 text-[10px]">${l.packetObj ? l.packetObj.path.join('&rarr;') : '-'}</td>
+            <td class="py-1 px-3 text-slate-400 truncate max-w-xs">${l.packetObj ? l.packetObj.payload : '-'}</td>
+          `;
+
+          if (l.packetObj) {
+            tr.addEventListener('click', () => {
+              this.updateInspector(l.packetObj);
+              // Switch tab to inspector
+              document.getElementById('tab-inspector').click();
+            });
+          }
+
+          tbody.appendChild(tr);
+        });
+      }
+
+      // --- STATS & SPARKLINE CHART ---
+      updateStatsUI() {
+        document.getElementById('stat-sent').textContent = this.stats.sent;
+        document.getElementById('stat-delivered').textContent = this.stats.delivered;
+        document.getElementById('stat-dropped').textContent = this.stats.dropped;
+
+        const totalHandled = this.stats.delivered + this.stats.dropped;
+        const lossRate = totalHandled > 0 ? ((this.stats.dropped / totalHandled) * 100).toFixed(1) : '0.0';
+        document.getElementById('stat-loss-rate').textContent = `${lossRate}%`;
+
+        const avgRtt = this.stats.rttHistory.length > 0 
+          ? Math.round(this.stats.rttHistory.reduce((a,b)=>a+b, 0) / this.stats.rttHistory.length) 
+          : 0;
+        document.getElementById('stat-avg-rtt').textContent = `${avgRtt} ms`;
+
+        // Throughput calculation
+        const throughput = this.packets.length;
+        document.getElementById('stat-throughput').textContent = `${throughput} pkts/s`;
+      }
+
+      setupSparklineChart() {
+        this.sparklineCanvas = document.getElementById('chart-sparkline');
+        this.sparklineCtx = this.sparklineCanvas.getContext('2d');
+        this.sparklineData = new Array(30).fill(0);
+      }
+
+      updateSparklineData() {
+        if (!this.sparklineCanvas) return;
+        
+        // Push current active packets count
+        if (Math.random() < 0.1) {
+          this.sparklineData.push(this.packets.length);
+          if (this.sparklineData.length > 30) this.sparklineData.shift();
+          this.renderSparkline();
+        }
+      }
+
+      renderSparkline() {
+        const ctx = this.sparklineCtx;
+        const w = this.sparklineCanvas.width = this.sparklineCanvas.parentElement.clientWidth;
+        const h = this.sparklineCanvas.height = 96;
+
+        ctx.clearRect(0, 0, w, h);
+
+        const maxVal = Math.max(...this.sparklineData, 5);
+        const stepX = w / (this.sparklineData.length - 1);
+
+        ctx.beginPath();
+        this.sparklineData.forEach((val, idx) => {
+          const x = idx * stepX;
+          const y = h - (val / maxVal) * (h - 10) - 5;
+          if (idx === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+
+        ctx.strokeStyle = '#0ea5e9';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Area fill
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.fillStyle = 'rgba(14, 165, 233, 0.1)';
+        ctx.fill();
+      }
+    }
+
+    // --- INSTANTIATE APPLICATION ON LOAD ---
+    let app = null;
+    window.addEventListener('load', () => {
+      app = new NetworkApp();
+    });
+  </script>
+  <p>This code was generated by Gemini </p>
+</body>
+</html>
